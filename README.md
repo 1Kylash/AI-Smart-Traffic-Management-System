@@ -41,3 +41,12 @@ Vehicle detection from camera feeds (YOLO + OpenCV)
 Real GPS transmitter in ambulances
 City-wide coordination of multiple junctions
 Accident and weather alerts, pedestrian-aware timing
+
+Team Fantastic Six:
+
+   1.Kevin Franco R V
+   2.M Kylash
+   3.Muhammed Rayyan
+   4.
+   5.
+   6.
