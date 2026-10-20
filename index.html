@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Smart Traffic Management – Prototype</title>
+<style>
+:root{--bg:#f4f7fa;--card:#fff;--tx:#0f1b33;--mut:#5b6b80;--bd:#d5dce6;--acc:#0d9488;--accx:#fff;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1b33;--card:#17274a;--tx:#f4f7fa;--mut:#aab6c6;--bd:#2c3d63;--acc:#14b8a6;--accx:#0f1b33;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0f1b33;--card:#17274a;--tx:#f4f7fa;--mut:#aab6c6;--bd:#2c3d63;--acc:#14b8a6;--accx:#0f1b33;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;line-height:1.4}
+.wrap{max-width:960px;margin:0 auto;padding:16px}
+h1{font-size:22px;margin:0 0 4px}p.sub{margin:0 0 14px;color:var(--mut);font-size:14px}
+.grid{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-start}
+canvas{width:100%;max-width:520px;height:auto;border-radius:12px;border:1px solid var(--bd);background:#2f5d46}
+.panel{flex:1;min-width:260px;display:grid;gap:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.04em;color:var(--mut);margin:0 0 8px}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;font-size:14px;padding:8px 12px;border-radius:8px;border:1px solid var(--bd);background:var(--card);color:var(--tx);cursor:pointer}
+button.on{background:var(--acc);color:var(--accx);border-color:var(--acc);font-weight:600}
+button.amb{border-color:#ef4444;color:#ef4444}
+label{display:block;font-size:13px;margin:6px 0 2px}input[type=range]{width:100%}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat b{display:block;font-size:20px}.stat span{font-size:12px;color:var(--mut)}
+</style></head><body><div class="wrap">
+<h1>AI Smart Traffic Management – Live Prototype</h1>
+<p class="sub">Simulated junction. Traffic density comes from a simulated satellite / maps feed; the AI controller sets the signals.</p>
+<div class="grid">
+<canvas id="c" width="600" height="600"></canvas>
+<div class="panel">
+<div class="card"><h2>Controller</h2><div class="row"><button id="mAi" class="on">AI adaptive</button><button id="mFx">Fixed timer</button></div>
+<p class="sub" style="margin:8px 0 0;font-size:12px">AI mode skips empty lanes and gives ambulances a green corridor. Fixed mode switches every 8 s regardless.</p></div>
+<div class="card"><h2>Traffic feed</h2>
+<label>North–South density</label><input id="sNS" type="range" min="0" max="100" value="55">
+<label>East–West density</label><input id="sEW" type="range" min="0" max="100" value="8"></div>
+<div class="card"><h2>Ambulance (sensor ping)</h2><div class="row"><button class="amb" id="aN">Ambulance from North</button><button class="amb" id="aW">Ambulance from West</button></div></div>
+<div class="card"><h2>Live stats</h2><div class="stats">
+<div class="stat"><b id="tG">NS</b><span>Green direction</span></div>
+<div class="stat"><b id="tW">0 s</b><span>Green wasted on empty road</span></div>
+<div class="stat"><b id="tA">0 s</b><span>Avg wait per vehicle</span></div>
+<div class="stat"><b id="tM">–</b><span>Last ambulance delay</span></div></div>
+<div class="row" style="margin-top:10px"><button id="rs">Reset</button></div></div>
+</div></div></div>
+<script>
+const $=id=>document.getElementById(id),cv=$('c'),ctx=cv.getContext('2d');
+let mode='ai',rNS=.3,rEW=.05,cars,green,gt,allred,nextGreen,passed,waitSum,wasted,ambMsg,t=0;
+const cols=['#e5e7eb','#60a5fa','#facc15','#f472b6','#a3e635','#fb923c'],DIRS=['N','S','W','E'];
+const ax=d=>d==='N'||d==='S'?'NS':'EW';
+function reset(){cars=[];green='NS';gt=0;allred=0;nextGreen='NS';passed=0;waitSum=0;wasted=0;ambMsg='–';}
+function spawn(d,amb){cars.push({d,pos:0,len:amb?28:20,v:amb?115:75,wait:0,amb:!!amb,col:cols[Math.random()*cols.length|0]});}
+function step(dt){
+ for(const d of DIRS){const r=ax(d)==='NS'?rNS:rEW;if(Math.random()<r*dt&&!cars.some(c=>c.d===d&&c.pos<30))spawn(d);}
+ const a=mode==='ai'?cars.find(c=>c.amb&&c.pos<340):null;
+ const wt=x=>cars.filter(c=>ax(c.d)===x&&c.pos<250&&c.pos>100).length;
+ if(allred>0){allred-=dt;if(allred<=0){green=nextGreen;gt=0;}}
+ else{gt+=dt;const o=green==='NS'?'EW':'NS';let sw=false;
+  if(a)sw=ax(a.d)!==green;
+  else if(mode==='fixed')sw=gt>=8;
+  else{const wc=wt(green),wo=wt(o);sw=gt>=3&&wo>0&&(wc===0||wo>wc*1.5||gt>=14);}
+  if(sw){nextGreen=o;allred=.8;}
+  if(!cars.some(c=>ax(c.d)===green&&c.pos<260))wasted+=dt;}
+ for(const d of DIRS){
+  const L=cars.filter(c=>c.d===d).sort((x,y)=>y.pos-x.pos);let lead=null;
+  const ok=green===ax(d)&&allred<=0;
+  for(const c of L){let lim=1e9;if(lead)lim=lead.pos-lead.len-6;if(!ok&&c.pos<=250)lim=Math.min(lim,250);
+   const np=Math.max(c.pos,Math.min(c.pos+c.v*dt,lim));
+   if(np-c.pos<c.v*dt*.3)c.wait+=dt;c.pos=np;lead=c;}}
+ cars=cars.filter(c=>{if(c.pos>640){passed++;waitSum+=c.wait;if(c.amb)ambMsg=c.wait.toFixed(1)+' s';return false;}return true;});
+}
+function xy(c){const p=c.pos,l=c.len;
+ if(c.d==='N')return[279,p-l,12,l];if(c.d==='S')return[309,600-p,12,l];
+ if(c.d==='W')return[p-l,309,l,12];return[600-p,279,l,12];}
+function draw(){
+ ctx.clearRect(0,0,600,600);ctx.fillStyle='#2f5d46';ctx.fillRect(0,0,600,600);
+ ctx.fillStyle='#2b3240';ctx.fillRect(260,0,80,600);ctx.fillRect(0,260,600,80);
+ ctx.strokeStyle='#cbd5e1';ctx.setLineDash([14,12]);ctx.lineWidth=2;
+ ctx.beginPath();ctx.moveTo(300,0);ctx.lineTo(300,260);ctx.moveTo(300,340);ctx.lineTo(300,600);ctx.moveTo(0,300);ctx.lineTo(260,300);ctx.moveTo(340,300);ctx.lineTo(600,300);ctx.stroke();ctx.setLineDash([]);
+ ctx.fillStyle='#fff';ctx.fillRect(260,252,40,3);ctx.fillRect(300,345,40,3);ctx.fillRect(252,300,3,40);ctx.fillRect(345,260,3,40);
+ const L={N:[270,238],S:[330,362],W:[238,330],E:[362,270]};
+ for(const d of DIRS){const g=green===ax(d)&&allred<=0;ctx.fillStyle=g?'#22c55e':'#ef4444';ctx.beginPath();ctx.arc(L[d][0],L[d][1],8,0,7);ctx.fill();}
+ for(const c of cars){const[x,y,w,h]=xy(c);
+  if(c.amb){ctx.fillStyle='#fff';ctx.fillRect(x,y,w,h);ctx.fillStyle=Math.floor(t*6)%2?'#ef4444':'#3b82f6';
+   if(w>h)ctx.fillRect(x+h*.2,y+2,w*.35,h-4);else ctx.fillRect(x+2,y+w*.2,w-4,h*.35);}
+  else{ctx.fillStyle=c.col;ctx.fillRect(x,y,w,h);}}
+}
+function ui(){$('tG').textContent=allred>0?'switching':green;$('tW').textContent=wasted.toFixed(0)+' s';
+ $('tA').textContent=(passed?waitSum/passed:0).toFixed(1)+' s';$('tM').textContent=ambMsg;}
+let last=performance.now(),uiT=0;
+function loop(n){const dt=Math.min(.05,(n-last)/1000);last=n;t+=dt;step(dt);draw();uiT+=dt;if(uiT>.25){ui();uiT=0;}requestAnimationFrame(loop);}
+function setMode(m){mode=m;$('mAi').classList.toggle('on',m==='ai');$('mFx').classList.toggle('on',m==='fixed');reset();}
+$('mAi').onclick=()=>setMode('ai');$('mFx').onclick=()=>setMode('fixed');
+$('sNS').oninput=e=>rNS=e.target.value/100*.6;$('sEW').oninput=e=>rEW=e.target.value/100*.6;
+$('aN').onclick=()=>spawn('N',true);$('aW').onclick=()=>spawn('W',true);$('rs').onclick=reset;
+rNS=55/100*.6;rEW=8/100*.6;reset();requestAnimationFrame(loop);
+</script></body></html>
