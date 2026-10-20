@@ -1,4 +1,3 @@
-# CODERANK
 AI Smart Traffic Management System (Prototype)
 
 Built for DEXATHON 2026 – category: AI & Machine Learning.
@@ -30,7 +29,8 @@ Host it free with GitHub Pages
 Push this folder to a GitHub repository.
 Go to Settings > Pages.
 Under Branch, choose main and / (root), then save.
-Your demo will be live at https://1kylash.github.io/CODERANK/
+Your demo will be live at https://1kylash.github.io/AI-Smart-Traffic-Management-System/
+
 Tech
 
 HTML, CSS, JavaScript (Canvas). No external libraries.
